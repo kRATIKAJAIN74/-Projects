@@ -51,17 +51,27 @@ router.get("/new", (req, res)=> {
     }));
 
     //Edit Route
-    router.get("/:id/edit", 
-       wrapAsync(async(req,res)=> {
-        let {id} = req.params;
-        const listing = await Listing.findById(id);
-        if(!listing){
-          req.flash("error", "Listing you requested does not exist.");
-         return res.redirect("/listings");
-        }
-        res.render("./listings/edit.ejs", {listing});
-    }));
+    router.put("/:id", validateListing,
+  wrapAsync(async (req, res) => {
+    let { id } = req.params;
+    const listing = await Listing.findById(id);
 
+    // If image field is missing or empty, preserve the old image object
+    if (!req.body.listing.image || req.body.listing.image === "") {
+      req.body.listing.image = listing.image;
+    } else if (typeof req.body.listing.image === "string") {
+      // If only URL is provided, update just the url property
+      req.body.listing.image = {
+        ...listing.image,
+        url: req.body.listing.image
+      };
+    }
+
+    await Listing.findByIdAndUpdate(id, { ...req.body.listing });
+    req.flash("success", " Listing Updated.");
+    res.redirect(`/listings/${id}`);
+  })
+);
   //Update Route
   router.put("/:id", validateListing,
     wrapAsync(async (req, res)=> {

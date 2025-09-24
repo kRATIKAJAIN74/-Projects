@@ -1,45 +1,75 @@
 const express = require("express");
 const router = express.Router();
 const wrapAsync = require("../utils/wrapAsync.js");
+const { listingSchema, reviewSchema } = require("../schema.js");
 const ExpressError = require("../utils/ExpressError.js");
-const {listingSchema, reviewSchema} = require("../schema.js");
 const Listing = require("../models/listing.js");
-const {isLoggedIn} = require("../middleware.js");
-const listingController = require("../controller/listing.js");
+const { isLoggedIn, isOwner } = require("../middleware.js");
+const listingController= require("../controller/listing.js");
+const multer  = require('multer');
+const { storage } = require("../cloudConfig.js");
+const upload = multer({ storage });
+
+
+
 
 const validateListing = (req, res, next) => {
-let {error} = listingSchema.validate(req.body);
-       if(error) {
-        let errMsg = error.details.map((el) => el.message).join(",");
-        throw new ExpressError(400, errMsg);
-       }else {
-        next();
-       }
-}
+  let { error } = listingSchema.validate(req.body);
+  if (error) {
+    let errMsg = error.details.map((el) => el.message).join(",");
+    throw new ExpressError(400, error);
+  } else {
+    next();
+  }
+};
 
-//Index Route
-router.get("/", wrapAsync(listingController.index));
+router
+.route("/")
+.get(
+  wrapAsync(listingController.index)
+)
+// .post(
+//    validateListing,
+//   upload.single('listing[image]'),
+//   isLoggedIn,
+//   wrapAsync(listingController.createListing)
+// );
+.post(upload.single('listing[image'), (req, res) => {
+  res.send(req.file);
+})
 
 
-     //New Route
+// new route
 router.get("/new", isLoggedIn, listingController.renderNewForm);
 
-    //Show Route
-    router.get("/:id", wrapAsync(listingController.showListing));
-
-    //Create Route
-    router.post("/", isLoggedIn, validateListing,
-      wrapAsync(listingController.postListing));
-
-    //Edit Route
-    router.get("/:id/edit", isLoggedIn, 
-       wrapAsync(listingController.editListing));
-
-  //Update Route
-  router.put("/:id", validateListing, isLoggedIn,
+router.route("/:id")
+.get(
+  wrapAsync(listingController.showListing)
+)
+.put(
+  isLoggedIn,
+  // upload.single('listing[image]'), // <-- Add this line
+  validateListing,
+  isOwner,
   wrapAsync(listingController.updateListing)
+)
+.delete(
+  isOwner,
+  isLoggedIn,
+  wrapAsync(listingController.destroyListing)
 );
-  //Delete route
-  router.delete("/:id", isLoggedIn, wrapAsync(listingController.deleteListing));
 
- module.exports = router; 
+
+
+//Edit route
+router.get(
+  "/:id/edit",
+  isLoggedIn,
+  isOwner,
+  wrapAsync(listingController.renderEditForm)
+);
+
+
+
+
+module.exports = router;

@@ -8,7 +8,7 @@ const { isLoggedIn, isOwner } = require("../middleware.js");
 const listingController= require("../controller/listing.js");
 const multer  = require('multer');
 const { storage } = require("../cloudConfig.js");
-const upload = multer({ storage });
+const upload = multer({ storagec });
 
 
 

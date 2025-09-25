@@ -11,9 +11,19 @@ module.exports.listingSchema = Joi.object({
     }).required()
 });
 
+
 module.exports.reviewSchema = Joi.object({
     review: Joi.object({
-      rating: Joi.number().min(1).max(5).required(),
-      comment: Joi.string().required(), 
+        rating: Joi.number()
+            .min(1)
+            .max(5)
+            .required()
+            .messages({
+                'number.base': '"rating" must be a number between 1 and 5',
+                'number.min': '"rating" must be at least 1',
+                'number.max': '"rating" cannot be greater than 5',
+                'any.required': '"rating" is required',
+            }),
+        comment: Joi.string().required(),
     }).required()
-})
+});

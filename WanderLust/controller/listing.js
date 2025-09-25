@@ -26,22 +26,71 @@ module.exports.showListing = async (req, res) => {
 };
 
 module.exports.createListing = async (req, res, next) => {
-  let url = req.file.path;
-  let filename= req.file.filename;
-  
-  
-  const newListing = new Listing(req.body.listing);
-  newListing.owner = req.user._id;
-  newListing.image={url,filename};
-  await newListing.save();
-  req.flash("success", "New listing is created");
-  res.redirect("/listings");
+  try {
+    let url = req.file?.path || "";
+    let filename = req.file?.filename || "";
+    let location = req.body.listing.location;
+
+    //  API call
+    const data = await fetch(
+      `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
+        location
+      )}`
+    ).then((res) => res.json());
+
+    const newListing = new Listing(req.body.listing);
+    newListing.owner = req.user._id;
+
+    
+    newListing.image = { url, filename };
+
+    if (!data || data.length === 0) {
+      //  geometry if not found
+      newListing.geometry = {
+        type: "Point",
+        coordinates: [0, 0],
+      };
+
+      await newListing.save();
+      req.flash(
+        "error",
+        "Location not found, default coordinates (0,0) used."
+      );
+      return res.redirect(`/listings/${newListing._id}`);
+    }
+
+    // Coordinates from API
+    const firstResult = data[0];
+    const lat = parseFloat(firstResult.lat);
+    const lon = parseFloat(firstResult.lon);
+
+    newListing.geometry = {
+      type: "Point",
+      coordinates: [lon, lat],
+    };
+
+    await newListing.save();
+    req.flash("success", "New listing is created");
+    res.redirect(`/listings/${newListing._id}`);
+  } catch (err) {
+    console.error("Error creating listing:", err);
+    req.flash("error", "Something went wrong while creating the listing");
+    res.redirect("/listings/new");
+  }
 };
+
 
 module.exports.renderEditForm = async (req, res) => {
   let { id } = req.params;
-  let listing = await Listing.findById(id);
-  res.render("./listings/edit", { listing });
+  const listing = await Listing.findById(id);
+  if(!listing) {
+    req.flash("error", "Listing you requested for does not exist.");
+    res.redirect("/listings");
+  }
+  let originalImageUrl = listing.image.url;
+   originalImageUrl = originalImageUrl.replace("/upload", "/upload/w_250");
+
+   res.render("./listings/edit", { listing , originalImageUrl});
 };
 
 module.exports.updateListing = async (req, res) => {
@@ -59,7 +108,7 @@ module.exports.updateListing = async (req, res) => {
     };
   }
 
-  await Listing.findByIdAndUpdate(id, { ...req.body.listing });
+   await Listing.findByIdAndUpdate(id, { ...req.body.listing });
   req.flash("success", " Listing Updated.");
   res.redirect(`/listings/${id}`);
 };

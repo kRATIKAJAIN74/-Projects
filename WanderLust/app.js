@@ -15,13 +15,29 @@ const ExpressError = require("./utils/ExpressError.js");
 const { reviewSchema} = require("./schema.js");
 const Review = require("./models/review.js");
 const session = require("express-session");
+const MongoStore = require('connect-mongo');
 const flash = require("connect-flash");
 const passport = require("passport");
 const LocalStrategy = require("passport-local");
 const User = require("./models/user.js");
 
+const dbUrl = process.env.ATLASDB_URL;
+
+const store = MongoStore.create({
+    mongoUrl:  dbUrl,
+    crypto: {
+        secret: process.env.SECRET,
+    },
+    touchAfter: 24 * 3600,
+});
+
+store.on("error", (err)=> {
+    console.log("ERROR in MONGO SESSION STORE.", err);
+})
+
 const sessionOptions = {
-    secret: "mysupersecretcode", 
+    store,
+    secret: process.env.secret, 
     resave: false, 
     saveUninitialized: true,
     cookie: {
@@ -32,11 +48,11 @@ const sessionOptions = {
 };
 
 
+
 const listingRouter = require("./routes/listing.js");
 const reviewRouter = require("./routes/review.js");
 const userRouter = require("./routes/user.js");
 
-const MONGO_URL = "mongodb://127.0.0.1:27017/wanderLust";
 
 main()
 .then(()=> {
@@ -47,7 +63,7 @@ main()
 });
 
 async function main() {
-await mongoose.connect(MONGO_URL);
+await mongoose.connect(dbUrl);
 }
 app.engine('ejs', ejsMate);
  app.set("view engine", "ejs");
@@ -57,9 +73,9 @@ app.use(methodOverride("_method"));
 app.use(express.static(path.join(__dirname, "/public")));
 
 
-app.get("/", (req,res)=> {
-    res.send("Hii, I am root.");
-});
+// app.get("/", (req,res)=> {
+//     res.send("Hii, I am root.");
+// });
 
 app.use(session(sessionOptions));
 app.use(flash());
